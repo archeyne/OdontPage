@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'export',
-  basePath: '/OdontPage',
+  // basePath: '/OdontPage', // Uncomment this for GitHub Pages deployment
   images: {
     unoptimized: true,
   },
