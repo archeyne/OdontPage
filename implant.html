@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Odontological Implant 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505; /* Fallback */
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            color: #ffffff;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+        #ui-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.8);
+            transform: translateY(-2px);
+        }
+        .btn.active {
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+        #title-card {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            pointer-events: none;
+        }
+        h1 {
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 2px;
+            font-size: 24px;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, #ffffff, #aaaaaa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p {
+            margin: 5px 0 0 0;
+            font-size: 12px;
+            color: #888;
+            max-width: 250px;
+            line-height: 1.4;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.2rem;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="title-card">
+        <h1>Implant Systems</h1>
+        <p>Interactive Visualization</p>
+    </div>
+
+    <div id="loading" class="loading">Generating Geometry...</div>
+
+    <div id="ui-container">
+        <button class="btn" id="btn-explode">Explode View</button>
+        <button class="btn" id="btn-xray">X-Ray</button>
+        <button class="btn" id="btn-rotate">Auto Rotate</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Import Three.js and OrbitControls -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import TWEEN from 'three/addons/libs/tween.module.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+        // --- Configuration ---
+        const config = {
+            metalColor: 0xaaaaaa,
+            metalRoughness: 0.3,
+            metalMetalness: 0.9,
+            crownColor: 0xffffff,
+            crownRoughness: 0.1,
+            crownTransmission: 0.1, // Subsurface feel
+            abutmentColor: 0xffd700, // Gold
+            bgColor: 0x111111
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        // Fog for depth
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 10, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- Controls ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 30;
+        controls.target.set(0, 2, 0);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 2);
+        mainLight.position.set(5, 10, 7);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        mainLight.shadow.bias = -0.001;
+        scene.add(mainLight);
+
+        const rimLight = new THREE.SpotLight(0x4455ff, 5);
+        rimLight.position.set(-10, 5, -5);
+        rimLight.lookAt(0, 0, 0);
+        scene.add(rimLight);
+
+        const fillLight = new THREE.PointLight(0xffaa00, 0.5);
+        fillLight.position.set(-5, 0, 5);
+        scene.add(fillLight);
+
+        // --- Materials ---
+        // 1. Titanium (Fixture)
+        const titaniumMaterial = new THREE.MeshStandardMaterial({
+            color: config.metalColor,
+            roughness: 0.4,
+            metalness: 0.8,
+            flatShading: false
+        });
+
+        // 2. Gold (Abutment)
+        const goldMaterial = new THREE.MeshStandardMaterial({
+            color: config.abutmentColor,
+            roughness: 0.2,
+            metalness: 1.0,
+        });
+
+        // 3. Ceramic (Crown)
+        const ceramicMaterial = new THREE.MeshPhysicalMaterial({
+            color: config.crownColor,
+            roughness: 0.15,
+            metalness: 0.0,
+            clearcoat: 0.8,
+            clearcoatRoughness: 0.1,
+            transmission: 0.1, // Slight translucency
+            thickness: 1.0,
+            side: THREE.DoubleSide
+        });
+
+        const xRayMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+
+        // --- Geometry Generation ---
+
+        const implantGroup = new THREE.Group();
+        scene.add(implantGroup);
+
+        // PART 1: The Fixture (Screw)
+        const fixtureGroup = new THREE.Group();
+        implantGroup.add(fixtureGroup);
+
+        // Core cylinder
+        const screwHeight = 8;
+        const screwRadius = 1.2;
+        const screwGeo = new THREE.CylinderGeometry(screwRadius, screwRadius * 0.8, screwHeight, 32);
+        const screwMesh = new THREE.Mesh(screwGeo, titaniumMaterial);
+        screwMesh.position.y = screwHeight / 2;
+        screwMesh.castShadow = true;
+        screwMesh.receiveShadow = true;
+        fixtureGroup.add(screwMesh);
+
+        // Threads (Procedural Spiral)
+        // Using a TubeGeometry along a spiral path
+        function createThread() {
+            const points = [];
+            const turns = 10;
+            const height = screwHeight - 1; // Leave space at top/bottom
+            const radius = screwRadius;
+            const res = 100;
+            
+            for (let i = 0; i <= res; i++) {
+                const t = i / res;
+                const angle = t * Math.PI * 2 * turns;
+                const y = (t * height) + 0.5; // Start 0.5 up
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                points.push(new THREE.Vector3(x, y, z));
+            }
+            
+            const curve = new THREE.CatmullRomCurve3(points);
+            const tubeGeo = new THREE.TubeGeometry(curve, 200, 0.15, 5, false);
+            return new THREE.Mesh(tubeGeo, titaniumMaterial);
+        }
+        
+        const threadMesh = createThread();
+        threadMesh.castShadow = true;
+        threadMesh.receiveShadow = true;
+        fixtureGroup.add(threadMesh);
+
+        // PART 2: The Abutment (Connector)
+        const abutmentGroup = new THREE.Group();
+        // Initial Position: Sitting on top of screw
+        abutmentGroup.position.y = screwHeight; 
+        implantGroup.add(abutmentGroup);
+
+        // Collar (Hex base usually, but simplified to cylinder here)
+        const collarHeight = 1.5;
+        const collarGeo = new THREE.CylinderGeometry(screwRadius, screwRadius, collarHeight, 32);
+        const collarMesh = new THREE.Mesh(collarGeo, titaniumMaterial); // Usually titanium base
+        collarMesh.position.y = collarHeight / 2;
+        collarMesh.castShadow = true;
+        abutmentGroup.add(collarMesh);
+
+        // Main Abutment Body (Tapered)
+        const abBodyHeight = 2.5;
+        const abBodyGeo = new THREE.CylinderGeometry(0.8, screwRadius, abBodyHeight, 32);
+        const abBodyMesh = new THREE.Mesh(abBodyGeo, goldMaterial);
+        abBodyMesh.position.y = collarHeight + (abBodyHeight / 2);
+        abBodyMesh.castShadow = true;
+        abutmentGroup.add(abBodyMesh);
+
+
+        // PART 3: The Crown (Tooth)
+        const crownGroup = new THREE.Group();
+        // Initial Position: On top of abutment collar + body
+        crownGroup.position.y = screwHeight + collarHeight + 0.2; 
+        implantGroup.add(crownGroup);
+
+        // Procedural Molar Shape (Improved)
+        // We sculpt a high-res cylinder to form cusps and natural curvature
+        const crownHeight = 5.5;
+        const crownWidth = 3.2;
+        
+        // High segment count is crucial for organic deformation
+        const crownGeo = new THREE.CylinderGeometry(crownWidth * 0.85, crownWidth * 0.55, crownHeight, 128, 40, false);
+        
+        // Center geometry vertically so y=0 is the bottom
+        crownGeo.translate(0, crownHeight / 2, 0);
+        
+        const posAttribute = crownGeo.attributes.position;
+        const vertex = new THREE.Vector3();
+
+        for (let i = 0; i < posAttribute.count; i++) {
+            vertex.fromBufferAttribute(posAttribute, i);
+            
+            // Convert to polar coords for radial manipulation
+            const angle = Math.atan2(vertex.z, vertex.x);
+            const radiusXZ = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
+            const yRatio = vertex.y / crownHeight; // 0.0 (bottom) to 1.0 (top)
+
+            // 1. SQUARISH PROFILE (Molars are not perfect circles)
+            // We push the "corners" out slightly (at 45, 135, 225, 315 degrees)
+            const squareFactor = Math.cos(angle * 4); 
+            const squareMorph = 1.0 + (squareFactor * 0.08 * yRatio); // Apply mostly to top half
+            
+            // 2. ANATOMICAL BULGE (The "belly" of the tooth)
+            // Teeth are widest at the contact point (approx 2/3 up)
+            const bulge = Math.sin(yRatio * Math.PI * 0.8) * 0.35;
+            const widthMultiplier = 1.0 + bulge;
+
+            vertex.x *= widthMultiplier * squareMorph;
+            vertex.z *= widthMultiplier * squareMorph;
+
+            // 3. OCCLUSAL SURFACE (Chewing Cusps)
+            // Only modify the top surface
+            if (yRatio > 0.85) {
+                // Distance from center (0 to ~1.0)
+                const distRatio = radiusXZ / (crownWidth * 0.85);
+                
+                // Create 4 Cusps using sine waves
+                const cuspHeight = (Math.cos(angle * 4) + 1) * 0.5; // 0 to 1 wave
+                
+                // Central Fossa (Depression in middle)
+                // Deep in middle, rising towards edges
+                const fossaProfile = Math.pow(distRatio, 2.5); 
+                
+                // Combine: 
+                // - Base height
+                // - Cusp undulation (stronger at edges)
+                // - Central dip
+                const detailHeight = (cuspHeight * 0.6 * distRatio) - (0.4 * (1.0 - fossaProfile));
+                
+                vertex.y += detailHeight;
+                
+                // Pinch the top slightly inward to define the occlusal table
+                vertex.x *= 0.95;
+                vertex.z *= 0.95;
+            }
+
+            posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+        }
+
+        // Recompute normals for smooth organic lighting
+        crownGeo.computeVertexNormals();
+
+        const crownMesh = new THREE.Mesh(crownGeo, ceramicMaterial);
+        crownMesh.castShadow = true;
+        crownMesh.receiveShadow = true;
+        crownGroup.add(crownMesh);
+
+        // --- Environment / Ground ---
+        // Invisible plane for shadows
+        const planeGeo = new THREE.PlaneGeometry(100, 100);
+        const planeMat = new THREE.ShadowMaterial({ opacity: 0.3 });
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = 0; // Base of screw
+        scene.add(plane);
+        
+        // Grid helper, very subtle
+        const gridHelper = new THREE.GridHelper(50, 50, 0x333333, 0x222222);
+        gridHelper.position.y = -0.01;
+        scene.add(gridHelper);
+
+
+        // --- Remove Loading Text ---
+        document.getElementById('loading').style.opacity = 0;
+
+
+        // --- Interaction Logic ---
+
+        let isExploded = false;
+        let isXray = false;
+        let autoRotate = false;
+
+        const btnExplode = document.getElementById('btn-explode');
+        const btnXray = document.getElementById('btn-xray');
+        const btnRotate = document.getElementById('btn-rotate');
+
+        // Explode Animation
+        btnExplode.addEventListener('click', () => {
+            isExploded = !isExploded;
+            btnExplode.classList.toggle('active');
+            
+            const duration = 1500;
+            const ease = TWEEN.Easing.Cubic.InOut;
+
+            // Target Y positions
+            const abutmentTargetY = isExploded ? screwHeight + 3 : screwHeight;
+            const crownTargetY = isExploded ? screwHeight + collarHeight + 0.2 + 6 : screwHeight + collarHeight + 0.2;
+
+            new TWEEN.Tween(abutmentGroup.position)
+                .to({ y: abutmentTargetY }, duration)
+                .easing(ease)
+                .start();
+
+            new TWEEN.Tween(crownGroup.position)
+                .to({ y: crownTargetY }, duration)
+                .easing(ease)
+                .start();
+        });
+
+        // X-Ray Mode
+        btnXray.addEventListener('click', () => {
+            isXray = !isXray;
+            btnXray.classList.toggle('active');
+
+            const newMat = isXray ? xRayMaterial : ceramicMaterial;
+            
+            // Update materials based on mode
+            if (isXray) {
+                // Create a special ghost material for the crown in X-Ray mode
+                const ghostMaterial = new THREE.MeshPhysicalMaterial({
+                    ...config,
+                    color: 0xffffff,
+                    transmission: 0.8,
+                    opacity: 0.3,
+                    transparent: true,
+                    roughness: 0.1,
+                    wireframe: false,
+                    side: THREE.DoubleSide
+                });
+                crownMesh.material = ghostMaterial;
+            } else {
+                crownMesh.material = ceramicMaterial;
+            }
+        });
+
+        // Auto Rotate
+        btnRotate.addEventListener('click', () => {
+            autoRotate = !autoRotate;
+            controls.autoRotate = autoRotate;
+            btnRotate.classList.toggle('active');
+        });
+
+
+        // --- Animation Loop ---
+        function animate(time) {
+            requestAnimationFrame(animate);
+            
+            TWEEN.update(time);
+            controls.update();
+            
+            // Subtle floating animation if assembled
+            if (!isExploded) {
+                implantGroup.position.y = Math.sin(time * 0.001) * 0.2;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
